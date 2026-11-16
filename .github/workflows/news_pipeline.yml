@@ -1,0 +1,60 @@
+name: Pure Gamer Editorial Pipeline
+
+on:
+  # Conservative schedule: runs every 6 hours to save Gemini API free tier quota
+  schedule:
+    - cron: '0 */6 * * *'
+
+  # Manual trigger: 1-click run from GitHub Actions UI
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pure-gamer-pipeline-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scrape-and-update:
+    name: Fetch Gaming Feeds, Synthesize Editorials & Update Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Execute Pure Gamer Pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || 'gemini-3.1-flash-lite' }}
+          MAX_ARTICLES: '5'
+        run: |
+          python pipeline.py
+
+      - name: Commit and Push Updates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/news.json README.md index.html
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: auto-update pure-gamer articles [skip ci]"
+            git pull --rebase origin main || (git rebase --abort && git pull --no-rebase origin main)
+            git push origin HEAD:main
+          else
+            echo "No gaming updates to commit."
+          fi
