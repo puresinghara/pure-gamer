@@ -1,7 +1,7 @@
 # 🎮 Pure Gamer — AI Editorial Gaming News & Reviews Magazine
 
 > **Live Automated Gaming Magazine:** Synthesized & rewritten in Thai by an AI Gaming Editor from multiple Global (IGN, GameSpot, PC Gamer, Eurogamer, VGC) and Japanese (IGN Japan, 4Gamer, Automaton JP, Gematsu) sources with full source attribution.
-> *อัปเดตล่าสุด: `17 พ.ย. 2026 • 12:52 น.`* • *รวมทั้งหมด: `20 รายการ`* (`🌍 Global News: 5` | `🇯🇵 Japan News: 5` | `⭐ Global Reviews: 5` | `⛩️ Japan Reviews: 5`)
+> *อัปเดตล่าสุด: `17 พ.ย. 2026 • 22:15 น.`* • *รวมทั้งหมด: `20 รายการ`* (`🌍 Global News: 5` | `🇯🇵 Japan News: 5` | `⭐ Global Reviews: 5` | `⛩️ Japan Reviews: 5`)
 
 ### 🌐 [กดที่นี่เพื่อเปิดหน้าเว็บ Pure Gamer (GitHub Pages)](https://puresinghara.github.io/pure-gamer/)
 
