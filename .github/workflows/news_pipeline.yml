@@ -1,9 +1,9 @@
 name: Pure Gamer Editorial Pipeline
 
 on:
-  # Conservative schedule: runs every 6 hours to save Gemini API free tier quota
-  schedule:
-    - cron: '0 */6 * * *'
+  # Schedule: Paused to free up Gemini API quota
+  # schedule:
+  #   - cron: '0 */6 * * *'
 
   # Manual trigger: 1-click run from GitHub Actions UI
   workflow_dispatch:
@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   scrape-and-update:
+    if: false # Paused to free up Gemini API quota (also blocks external cron triggers)
     name: Fetch Gaming Feeds, Synthesize Editorials & Update Pages
     runs-on: ubuntu-latest
     timeout-minutes: 25
