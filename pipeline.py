@@ -75,10 +75,11 @@ HEADERS = {
 
 _rate_limit_lock = threading.Lock()
 _last_api_call_ts = 0.0
+_daily_quota_exhausted = False
 try:
-    MIN_API_INTERVAL_SEC = float(_load_env_value("MIN_API_INTERVAL_SEC") or "1.5")
+    MIN_API_INTERVAL_SEC = float(_load_env_value("MIN_API_INTERVAL_SEC") or "4.5")
 except ValueError:
-    MIN_API_INTERVAL_SEC = 1.5
+    MIN_API_INTERVAL_SEC = 4.5
 
 THAI_MONTHS = [
     "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.",
@@ -865,6 +866,7 @@ def _wait_for_rate_limit():
 
 def call_gemini(item_info: dict) -> dict:
     """Call Gemini as Pure Gamer Magazine Editor to synthesize facts from multi-source context."""
+    global _daily_quota_exhausted
     title = item_info.get("title", item_info.get("original_title", ""))
     category_hint = item_info.get("category_hint", item_info.get("tag", "GlobalNews"))
     cat_prompt = CATEGORY_PROMPTS.get(category_hint, CATEGORY_PROMPTS["GlobalNews"])
@@ -872,8 +874,11 @@ def call_gemini(item_info: dict) -> dict:
     sources_list = item_info.get("sources") or [{"name": item_info.get("source_name", "Source"), "url": item_info.get("link", "")}]
     source_names_str = ", ".join(s["name"] for s in sources_list)
 
-    if not GEMINI_API_KEY:
-        logger.warning(f"GEMINI_API_KEY missing; skipping editorial synthesis for '{title[:40]}'")
+    if not GEMINI_API_KEY or _daily_quota_exhausted:
+        if _daily_quota_exhausted:
+            logger.warning(f"Daily Gemini RPD quota exhausted; skipping editorial synthesis for '{title[:40]}'")
+        else:
+            logger.warning(f"GEMINI_API_KEY missing; skipping editorial synthesis for '{title[:40]}'")
         return {
             "thai_title": title,
             "tag": category_hint,
@@ -924,11 +929,21 @@ def call_gemini(item_info: dict) -> dict:
         "generationConfig": {"response_mime_type": "application/json", "temperature": 0.25},
     }
 
-    for attempt in range(4):
+    for attempt in range(3):
         try:
             _wait_for_rate_limit()
             resp = requests.post(url, json=payload, timeout=45)
-            if resp.status_code in (429, 500, 502, 503, 504):
+            if resp.status_code == 429:
+                body_lower = (resp.text or "").lower()
+                if any(k in body_lower for k in ("perday", "per_day", "requestsperday", "daily")):
+                    _daily_quota_exhausted = True
+                    logger.error(f"Gemini daily quota exhausted (429) on '{title[:30]}...'; halting remaining API calls.")
+                    break
+                wait_s = (8 * (2 ** attempt)) + random.uniform(1.0, 3.5)
+                logger.warning(f"Gemini HTTP 429 for '{title[:30]}...'. Backing off {wait_s:.1f}s...")
+                time.sleep(wait_s)
+                continue
+            if resp.status_code in (500, 502, 503, 504):
                 wait_s = (4 * (2 ** attempt)) + random.uniform(1.0, 3.5)
                 logger.warning(f"Gemini HTTP {resp.status_code} for '{title[:30]}...'. Backing off {wait_s:.1f}s...")
                 time.sleep(wait_s)
@@ -1993,7 +2008,7 @@ def run():
                 scraped_items = list(executor.map(scrape_article_details, new_items_to_synthesize))
 
             logger.info(f"[{cat}] Synthesizing editorial articles with {GEMINI_MODEL}...")
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 editorials = list(executor.map(call_gemini, scraped_items))
 
             for idx_new, (item, ed) in enumerate(zip(scraped_items, editorials)):

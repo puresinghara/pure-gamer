@@ -43,6 +43,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || 'gemini-3.1-flash-lite' }}
+          MIN_API_INTERVAL_SEC: '4.5'
           MAX_ARTICLES: '5'
         run: |
           python pipeline.py
